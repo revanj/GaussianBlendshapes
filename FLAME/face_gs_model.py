@@ -223,10 +223,12 @@ class GaussianModel:
         jaw_pose_params = params.jaw
         eye_pose_params = params.eyes
         expression_params = params.exp
+        eyelid_params = params.eyelids
+
+        input("running blenshape")
 
         expression_params = torch.zeros_like(params.exp)
-
-        eyelid_params = params.eyelids
+        eyelid_params = torch.zeros_like(params.eyelids)
 
         batch_size = shape_params.shape[0]
         I = matrix_to_rotation_6d(torch.cat([torch.eye(3)[None]] * batch_size, dim=0).cuda())
