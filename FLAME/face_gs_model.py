@@ -225,8 +225,6 @@ class GaussianModel:
         expression_params = params.exp
         eyelid_params = params.eyelids
 
-        input("running blenshape")
-
         expression_params = torch.zeros_like(params.exp)
         eyelid_params = torch.zeros_like(params.eyelids)
 
