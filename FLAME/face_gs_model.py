@@ -223,6 +223,9 @@ class GaussianModel:
         jaw_pose_params = params.jaw
         eye_pose_params = params.eyes
         expression_params = params.exp
+
+        expression_params = torch.zeros_like(params.exp)
+
         eyelid_params = params.eyelids
 
         batch_size = shape_params.shape[0]
