@@ -227,6 +227,8 @@ class GaussianModel:
 
         expression_params = torch.zeros_like(params.exp)
         eyelid_params = torch.zeros_like(params.eyelids)
+        eye_pose_params = torch.zeros_like(params.eyes)
+        jaw_pose_params = torch.zeros_like(params.jaw)
 
         batch_size = shape_params.shape[0]
         I = matrix_to_rotation_6d(torch.cat([torch.eye(3)[None]] * batch_size, dim=0).cuda())
