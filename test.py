@@ -119,9 +119,9 @@ def render_set(model_path, name, iteration, views, gaussians, args, background):
     from os import makedirs
     import cv2
 
-    if args.use_HR:
-        dataset, views = views
-        dataset.create_load_seqs(views)
+    # if args.use_HR:
+    #     dataset, views = views
+    #     dataset.create_load_seqs(views)
 
     render_path = os.path.join(model_path, name, "split_{}".format(iteration))
     merge_path = os.path.join(model_path, name, "join_{}".format(iteration))
@@ -134,75 +134,97 @@ def render_set(model_path, name, iteration, views, gaussians, args, background):
 
 
     # for idx, view in enumerate(tqdm(views, desc="Rendering progress")):
-    while True:
-        for idx, view in enumerate(tqdm(views, "Rendering progress")):
-            if idx < 3000:
-                continue
-            if args.use_HR:
-                view = dataset.getData(view, load_mode = 'load')
-            face_gaussians.prepare_merge(view)
-            face_gaussians.prepare_xyz(view, args)
 
-            mouth_gaussians_up.prepare_xyz(view, args)
-            mouth_gaussians_down.prepare_xyz(view, args)
+    for idx, view in enumerate(tqdm(views, "Rendering progress")):
+        # if args.use_HR:
+        #     view = dataset.getData(view, load_mode = 'load')
+        view.shape = views[0].shape
+        # view.A = views[0].A
+        # view.A_diff = views[0].A_diff
+        # view.J_transformed = views[0].J_transformed
+        # view.R = views[0].R
+        # view.t = views[0].t
+        view.exp[:, :] = 0
+        view.exp[:, :50] = torch.tensor([[ 1.2310, -0.8005,  0.4995,  1.4424,  2.3095, -1.9606, -0.3964, -0.5736,
+         -0.2287,  0.8139, -0.5834,  0.3140, -0.9090,  1.1963, -0.0857, -0.1812,
+         -1.5576, -0.1082,  0.1644,  0.1899, -0.7814, -0.3301,  0.1534, -0.5647,
+         -1.8464, -0.9575, -0.7393,  0.1093, -3.6223, -0.3391,  0.3037,  1.3446,
+         -0.8149, -0.0040,  1.2340, -3.2523,  1.7548,  1.7817, -0.0410, -1.4741,
+         -0.6891,  1.0968,  1.9207, -0.8975, -0.1585,  0.1083, -0.1112,  1.2343,
+         -0.9327, -1.3055]]).cuda()
+        view.jaw = torch.tensor([[ 1.0594e+00,  2.7743e-04, -5.4344e-04, -7.6344e-03,  8.6961e-01, -2.0098e-01]]).cuda()
+        view.rjawTrans = torch.tensor([[[ 9.9977e-01,  2.0446e-02,  4.1822e-03,  5.7751e-04],
+         [-1.8512e-02,  9.6350e-01, -2.5932e-01, -1.5557e-02],
+         [-9.6357e-03,  2.5918e-01,  9.6368e-01,  2.1682e-03],
+         [ 0.0000e+00,  0.0000e+00,  0.0000e+00,  1.0000e+00]]]).cuda()
+        view.rjawTransN = torch.tensor([[[ 0.9998,  0.0204,  0.0043],
+         [-0.0186,  0.9655, -0.2598],
+         [-0.0095,  0.2597,  0.9656]]]).cuda()
 
-            rendering = f_renderer.render_alpha(view, gaussians, args, background)
-            if args.use_nerfBS:
-                gt = view.original_image[:, :, 0:3]
-                gt = to_image(gt)
-                bkg = view.bkg.cuda()
-                bkg = bkg.permute(2,0,1)
-                image = rendering['render']
-                alpha0 = rendering['alpha0']
-                image = image + (1-alpha0) * bkg # image with background
-                image = image.permute(1,2,0)
-                image = to_image(image)
-            else:
-                gt = view.original_image[:, :, 0:3] * view.mask[:, :, None]
-                gt = to_image(gt)
-                image = rendering['render'].permute(1,2,0)
-                image = to_image(image)
-            vis = face_gaussians.vis(view, args, [f_gaussian_model.View.SHAPE])
-            shape = to_image(vis[0])
+        view.frameNR = torch.tensor([[ 1.0000e+00, -4.3548e-05, -1.5803e-04], [ 4.4961e-05,  9.9996e-01,  8.9441e-03], [ 1.5764e-04, -8.9441e-03,  9.9996e-01]]).cuda()
+        view.frameR = torch.tensor([[ 1.0000e+00, -4.3548e-05, -1.5803e-04], [4.4961e-05,  9.9996e-01,  8.9441e-03], [ 1.5764e-04, -8.9441e-03,  9.9996e-01]]).cuda()
+        view.framet = torch.tensor([[7.2607e-05], [1.3445e-04], [6.8983e-04]]).cuda()
 
-            gt_mask = torch.stack([view.mask, torch.zeros_like(view.mask), torch.zeros_like(view.mask)], dim=-1)
-            gt_mask = to_image(gt_mask)
+        face_gaussians.prepare_merge(view)
+        face_gaussians.prepare_xyz(view, args)
 
+        mouth_gaussians_up.prepare_xyz(view, args)
+        mouth_gaussians_down.prepare_xyz(view, args)
+
+        rendering = f_renderer.render_alpha(view, gaussians, args, background)
+        if args.use_nerfBS:
+            gt = view.original_image[:, :, 0:3]
+            gt = to_image(gt)
+            bkg = view.bkg.cuda()
+            bkg = bkg.permute(2,0,1)
+            image = rendering['render']
             alpha0 = rendering['alpha0']
-            alpha_image = torch.stack([alpha0, torch.zeros_like(alpha0), torch.zeros_like(alpha0)],dim=-1)
-            alpha_image = to_image(alpha_image)
+            image = image + (1-alpha0) * bkg # image with background
+            image = image.permute(1,2,0)
+            image = to_image(image)
+        else:
+            gt = view.original_image[:, :, 0:3] * view.mask[:, :, None]
+            gt = to_image(gt)
+            image = rendering['render'].permute(1,2,0)
+            image = to_image(image)
+        vis = face_gaussians.vis(view, args, [f_gaussian_model.View.SHAPE])
+        shape = to_image(vis[0])
 
-            # the generated render is stored in image, as in image[...,::-1]
+        gt_mask = torch.stack([view.mask, torch.zeros_like(view.mask), torch.zeros_like(view.mask)], dim=-1)
+        gt_mask = to_image(gt_mask)
 
-            # TODO: might have to manually composite mouth with mouth_image
-            # mouth_image = f_renderer.render(view, [mouth_gaussians_up, mouth_gaussians_down], args, background)["render"]
-            # mouth_image = to_image(mouth_image.permute(1,2,0))
-            # pc_numbers = [
-            #     mouth_gaussians_up._scaling.shape[0],
-            #     mouth_gaussians_down._scaling.shape[0],
-            # ]
-            # override_color = [
-            #     torch.tensor([1., 0., 0.], device="cuda").repeat(pc_numbers[0], 1),
-            #     torch.tensor([0., 1., 0.], device="cuda").repeat(pc_numbers[1], 1),
-            # ]
-            # mouth_mask = f_renderer.render(view, [mouth_gaussians_up, mouth_gaussians_down], args, background, override_color=override_color)["render"]
-            # mouth_mask = to_image(mouth_mask.permute(1,2,0))
-            # cv2.imwrite(os.path.join(render_path,"mouth_%05d.png" % idx),mouth_image[...,::-1])
-            # cv2.imwrite(os.path.join(render_path,"mouth_mask_%05d.png" % idx),mouth_mask[...,::-1])
+        alpha0 = rendering['alpha0']
+        alpha_image = torch.stack([alpha0, torch.zeros_like(alpha0), torch.zeros_like(alpha0)],dim=-1)
+        alpha_image = to_image(alpha_image)
 
-            # m = np.concatenate([gt,image,shape],axis=1)
-            # if args.render_seq and args.put_text:
-            #     if args.n_extract_ratio == -1:
-            #         tag = "Test" if (idx + args.n_seg >= len(views)) else "Train"
-            #     else:
-            #         tag = "Test" if ((idx // args.n_seg) % args.n_extract_ratio == args.n_extract_ratio - 1) else "Train"
-            #     cv2.putText(m, tag, (m.shape[1] - 180, 50), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 0), 1)
-            cv2.imshow("Reconstruction", image[...,::-1])
-            if idx == 3244:
-                print(view)
-                break
-        # if cv2.waitKey(1) & 0xFF == ord('q'):
-        #     break
+        # the generated render is stored in image, as in image[...,::-1]
+
+        # TODO: might have to manually composite mouth with mouth_image
+        # mouth_image = f_renderer.render(view, [mouth_gaussians_up, mouth_gaussians_down], args, background)["render"]
+        # mouth_image = to_image(mouth_image.permute(1,2,0))
+        # pc_numbers = [
+        #     mouth_gaussians_up._scaling.shape[0],
+        #     mouth_gaussians_down._scaling.shape[0],
+        # ]
+        # override_color = [
+        #     torch.tensor([1., 0., 0.], device="cuda").repeat(pc_numbers[0], 1),
+        #     torch.tensor([0., 1., 0.], device="cuda").repeat(pc_numbers[1], 1),
+        # ]
+        # mouth_mask = f_renderer.render(view, [mouth_gaussians_up, mouth_gaussians_down], args, background, override_color=override_color)["render"]
+        # mouth_mask = to_image(mouth_mask.permute(1,2,0))
+        # cv2.imwrite(os.path.join(render_path,"mouth_%05d.png" % idx),mouth_image[...,::-1])
+        # cv2.imwrite(os.path.join(render_path,"mouth_mask_%05d.png" % idx),mouth_mask[...,::-1])
+
+        # m = np.concatenate([gt,image,shape],axis=1)
+        # if args.render_seq and args.put_text:
+        #     if args.n_extract_ratio == -1:
+        #         tag = "Test" if (idx + args.n_seg >= len(views)) else "Train"
+        #     else:
+        #         tag = "Test" if ((idx // args.n_seg) % args.n_extract_ratio == args.n_extract_ratio - 1) else "Train"
+        #     cv2.putText(m, tag, (m.shape[1] - 180, 50), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 0), 1)
+        cv2.imshow("Reconstruction", image[...,::-1])
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
 
 
     images_to_video(merge_path)

@@ -633,12 +633,20 @@ def from_mesh_to_point(dataset, model, args, merge_iden=True):
         eyelid_params=zeros_eyelids  # 2
     )
     for params in tqdm(output_list):
+        # J_transformed, A = flame.get_transfer(
+        #     cameras=torch.inverse(params.cameras.R.to(args.data_device)),
+        #     shape_params=params.shape,
+        #     expression_params=params.exp,
+        #     eye_pose_params=params.eyes,  # 12
+        #     jaw_pose_params=params.jaw,  # 6
+        #     eyelid_params=params.eyelids  # 2
+        # )
         J_transformed, A = flame.get_transfer(
             cameras=torch.inverse(params.cameras.R.to(args.data_device)),
             shape_params=params.shape,
             expression_params=params.exp,
             eye_pose_params=params.eyes,  # 12
-            jaw_pose_params=params.jaw,  # 6
+            jaw_pose_params=torch.tensor([[ 1.0594e+00,  2.7743e-04, -5.4344e-04, -7.6344e-03,  8.6961e-01, -2.0098e-01]]).cuda(),  # 6
             eyelid_params=params.eyelids  # 2
         )
         trans = torch.eye(4,device=A.device) + A - A0

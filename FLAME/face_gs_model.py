@@ -254,23 +254,13 @@ class GaussianModel:
         rot_params = None
         neck_pose_params = None
         jaw_pose_params = params.jaw
-        jaw_pose_params = None
         eye_pose_params = params.eyes
         expression_params = params.exp
-        expression_params[:, :] = 0
-        expression_params[:, :50] = torch.tensor([[ 1.2310, -0.8005,  0.4995,  1.4424,  2.3095, -1.9606, -0.3964, -0.5736,
-         -0.2287,  0.8139, -0.5834,  0.3140, -0.9090,  1.1963, -0.0857, -0.1812,
-         -1.5576, -0.1082,  0.1644,  0.1899, -0.7814, -0.3301,  0.1534, -0.5647,
-         -1.8464, -0.9575, -0.7393,  0.1093, -3.6223, -0.3391,  0.3037,  1.3446,
-         -0.8149, -0.0040,  1.2340, -3.2523,  1.7548,  1.7817, -0.0410, -1.4741,
-         -0.6891,  1.0968,  1.9207, -0.8975, -0.1585,  0.1083, -0.1112,  1.2343,
-         -0.9327, -1.3055]])
         eyelid_params = params.eyelids
         eyelid_params[:, :] = torch.tensor([[0.0932, 0.1374]])
 
         batch_size = shape_params.shape[0]
         I = matrix_to_rotation_6d(torch.cat([torch.eye(3)[None]] * batch_size, dim=0).cuda())
-        # jaw_rot = matrix_to_rotation_6d(self.batch_rodrigues(torch.tensor([[50.0,  0, 0]])).cuda().transpose(1,2))
         if trans_params is None:
             trans_params = torch.zeros(batch_size, 3).cuda()
         if rot_params is None:
