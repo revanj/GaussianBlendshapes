@@ -2,8 +2,8 @@
 # model
 
 sh_degree = 3
-source_path = None
-model_path = None
+source_path = "output/marcel_data"
+model_path = "output/marcel_model/marcel/"
 
 white_bkgd = False
 data_device = "cuda:0"

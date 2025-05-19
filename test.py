@@ -198,6 +198,8 @@ def render_set(model_path, name, iteration, views, gaussians, args, background):
             cv2.putText(m, tag, (m.shape[1] - 180, 50), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 0), 1)
         cv2.imwrite(os.path.join(merge_path, "%05d.png" % idx), m[...,::-1])
 
+        break
+
     images_to_video(merge_path)
 
 
