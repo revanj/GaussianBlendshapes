@@ -132,73 +132,78 @@ def render_set(model_path, name, iteration, views, gaussians, args, background):
     mouth_gaussians_up = gaussians[1]
     mouth_gaussians_down = gaussians[2]
 
-    for idx, view in enumerate(tqdm(views, desc="Rendering progress")):
-        if args.use_HR:
-            view = dataset.getData(view, load_mode = 'load')
-        face_gaussians.prepare_merge(view)
-        face_gaussians.prepare_xyz(view, args)
 
-        mouth_gaussians_up.prepare_xyz(view, args)
-        mouth_gaussians_down.prepare_xyz(view, args)
+    # for idx, view in enumerate(tqdm(views, desc="Rendering progress")):
+    while True:
+        for idx, view in enumerate(tqdm(views, "Rendering progress")):
+            if idx < 3000:
+                continue
+            if args.use_HR:
+                view = dataset.getData(view, load_mode = 'load')
+            face_gaussians.prepare_merge(view)
+            face_gaussians.prepare_xyz(view, args)
 
-        rendering = f_renderer.render_alpha(view, gaussians, args, background)
-        if args.use_nerfBS:
-            gt = view.original_image[:, :, 0:3]
-            gt = to_image(gt)
-            bkg = view.bkg.cuda()
-            bkg = bkg.permute(2,0,1)
-            image = rendering['render']
-            alpha0 = rendering['alpha0']
-            image = image + (1-alpha0) * bkg # image with background
-            image = image.permute(1,2,0)
-            image = to_image(image)
-        else:
-            gt = view.original_image[:, :, 0:3] * view.mask[:, :, None]
-            gt = to_image(gt)
-            image = rendering['render'].permute(1,2,0)
-            image = to_image(image)
-        vis = face_gaussians.vis(view, args, [f_gaussian_model.View.SHAPE])
-        shape = to_image(vis[0])
+            mouth_gaussians_up.prepare_xyz(view, args)
+            mouth_gaussians_down.prepare_xyz(view, args)
 
-        gt_mask = torch.stack([view.mask, torch.zeros_like(view.mask), torch.zeros_like(view.mask)], dim=-1)
-        gt_mask = to_image(gt_mask)
-
-        alpha0 = rendering['alpha0']
-        alpha_image = torch.stack([alpha0, torch.zeros_like(alpha0), torch.zeros_like(alpha0)],dim=-1)
-        alpha_image = to_image(alpha_image)
-
-        cv2.imwrite(os.path.join(render_path,"gt_%05d.png" % idx),gt[...,::-1])
-        cv2.imwrite(os.path.join(render_path,"pred_%05d.png" % idx),image[...,::-1])
-        cv2.imwrite(os.path.join(render_path,"mesh_%05d.png" % idx), shape[...,::-1])
-
-        cv2.imwrite(os.path.join(render_path,"gt_mask_%05d.png" % idx), gt_mask[...,::-1])
-        cv2.imwrite(os.path.join(render_path,"pred_mask_%05d.png" % idx), alpha_image[...,::-1])
-
-        mouth_image = f_renderer.render(view, [mouth_gaussians_up, mouth_gaussians_down], args, background)["render"]
-        mouth_image = to_image(mouth_image.permute(1,2,0))
-        pc_numbers = [
-            mouth_gaussians_up._scaling.shape[0],
-            mouth_gaussians_down._scaling.shape[0],
-        ]
-        override_color = [
-            torch.tensor([1., 0., 0.], device="cuda").repeat(pc_numbers[0], 1),
-            torch.tensor([0., 1., 0.], device="cuda").repeat(pc_numbers[1], 1),
-        ]
-        mouth_mask = f_renderer.render(view, [mouth_gaussians_up, mouth_gaussians_down], args, background, override_color=override_color)["render"]
-        mouth_mask = to_image(mouth_mask.permute(1,2,0))
-        cv2.imwrite(os.path.join(render_path,"mouth_%05d.png" % idx),mouth_image[...,::-1])
-        cv2.imwrite(os.path.join(render_path,"mouth_mask_%05d.png" % idx),mouth_mask[...,::-1])
-
-        m = np.concatenate([gt,image,shape],axis=1)
-        if args.render_seq and args.put_text:
-            if args.n_extract_ratio == -1:
-                tag = "Test" if (idx + args.n_seg >= len(views)) else "Train"
+            rendering = f_renderer.render_alpha(view, gaussians, args, background)
+            if args.use_nerfBS:
+                gt = view.original_image[:, :, 0:3]
+                gt = to_image(gt)
+                bkg = view.bkg.cuda()
+                bkg = bkg.permute(2,0,1)
+                image = rendering['render']
+                alpha0 = rendering['alpha0']
+                image = image + (1-alpha0) * bkg # image with background
+                image = image.permute(1,2,0)
+                image = to_image(image)
             else:
-                tag = "Test" if ((idx // args.n_seg) % args.n_extract_ratio == args.n_extract_ratio - 1) else "Train"
-            cv2.putText(m, tag, (m.shape[1] - 180, 50), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 0), 1)
-        cv2.imwrite(os.path.join(merge_path, "%05d.png" % idx), m[...,::-1])
+                gt = view.original_image[:, :, 0:3] * view.mask[:, :, None]
+                gt = to_image(gt)
+                image = rendering['render'].permute(1,2,0)
+                image = to_image(image)
+            vis = face_gaussians.vis(view, args, [f_gaussian_model.View.SHAPE])
+            shape = to_image(vis[0])
 
-        break
+            gt_mask = torch.stack([view.mask, torch.zeros_like(view.mask), torch.zeros_like(view.mask)], dim=-1)
+            gt_mask = to_image(gt_mask)
+
+            alpha0 = rendering['alpha0']
+            alpha_image = torch.stack([alpha0, torch.zeros_like(alpha0), torch.zeros_like(alpha0)],dim=-1)
+            alpha_image = to_image(alpha_image)
+
+            # the generated render is stored in image, as in image[...,::-1]
+
+            # TODO: might have to manually composite mouth with mouth_image
+            # mouth_image = f_renderer.render(view, [mouth_gaussians_up, mouth_gaussians_down], args, background)["render"]
+            # mouth_image = to_image(mouth_image.permute(1,2,0))
+            # pc_numbers = [
+            #     mouth_gaussians_up._scaling.shape[0],
+            #     mouth_gaussians_down._scaling.shape[0],
+            # ]
+            # override_color = [
+            #     torch.tensor([1., 0., 0.], device="cuda").repeat(pc_numbers[0], 1),
+            #     torch.tensor([0., 1., 0.], device="cuda").repeat(pc_numbers[1], 1),
+            # ]
+            # mouth_mask = f_renderer.render(view, [mouth_gaussians_up, mouth_gaussians_down], args, background, override_color=override_color)["render"]
+            # mouth_mask = to_image(mouth_mask.permute(1,2,0))
+            # cv2.imwrite(os.path.join(render_path,"mouth_%05d.png" % idx),mouth_image[...,::-1])
+            # cv2.imwrite(os.path.join(render_path,"mouth_mask_%05d.png" % idx),mouth_mask[...,::-1])
+
+            # m = np.concatenate([gt,image,shape],axis=1)
+            # if args.render_seq and args.put_text:
+            #     if args.n_extract_ratio == -1:
+            #         tag = "Test" if (idx + args.n_seg >= len(views)) else "Train"
+            #     else:
+            #         tag = "Test" if ((idx // args.n_seg) % args.n_extract_ratio == args.n_extract_ratio - 1) else "Train"
+            #     cv2.putText(m, tag, (m.shape[1] - 180, 50), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 0), 1)
+            cv2.imshow("Reconstruction", image[...,::-1])
+            if idx == 3244:
+                print(view)
+                break
+        # if cv2.waitKey(1) & 0xFF == ord('q'):
+        #     break
+
 
     images_to_video(merge_path)
 
