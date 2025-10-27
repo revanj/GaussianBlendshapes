@@ -19,7 +19,7 @@ class FaceDataset:
         self.dataset_name = dataset_name
         file_list = glob.glob(os.path.join(dataset_name,"checkpoint","*.frame"))
         self.shuffle = shuffle
-        self.n_frames = len(file_list)
+        self.n_frames = 350
         self.n_seg = 350 # use last 350 frames as test set
         self.n_extract_ratio = -1
         train_ids = []

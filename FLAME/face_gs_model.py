@@ -248,7 +248,6 @@ class GaussianModel:
 
 
     def run_blendshape(self, xyz, params):
-
         shape_params = params.shape
         trans_params = None
         rot_params = None
@@ -257,9 +256,13 @@ class GaussianModel:
         eye_pose_params = params.eyes
         expression_params = params.exp
         eyelid_params = params.eyelids
-        eyelid_params[:, :] = torch.tensor([[0.0932, 0.1374]])
+
+        print("view.jaw:", params.jaw)
+        print("view.exp:", params.exp)
+        print("params.eyelids:", params.eyelids)
 
         batch_size = shape_params.shape[0]
+
         I = matrix_to_rotation_6d(torch.cat([torch.eye(3)[None]] * batch_size, dim=0).cuda())
         if trans_params is None:
             trans_params = torch.zeros(batch_size, 3).cuda()
@@ -269,8 +272,6 @@ class GaussianModel:
             neck_pose_params = I.clone()
         if jaw_pose_params is None:
             jaw_pose_params = I.clone()
-            # jaw_pose_params = jaw_rot.clone()
-            # jaw_pose_params = self.batch_rodrigues(torch.tensor([[0.1146, 0.0016, 0.0147]]))
         if eye_pose_params is None:
             eye_pose_params = torch.cat([I.clone()] * 2, dim=1)
 

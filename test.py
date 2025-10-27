@@ -23,6 +23,8 @@ from FLAME.dataset import FaceDataset
 from FLAME.dataset_dyn import FaceDatasetDyn
 from FLAME.dataset_nerfbs import FaceDatasetNerfBS
 import FLAME.face_renderer as f_renderer
+import threading
+import socket
 
 #ignore_neck = False
 ignore_neck = True
@@ -31,6 +33,32 @@ max_displacement_of_blendshape49 = 0.000237277025008
 
 torch.set_num_threads(1)
 
+from queue import Queue
+
+incoming_frame = None
+
+HOST='192.168.1.60'
+PORT=5000
+
+def tcp_thread():
+    global incoming_frame
+    while True:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.connect((HOST, PORT))
+
+        while True:
+            try:
+                buffer = b''
+                chunk = s.recv(4096)
+                buffer += chunk
+                tensor = np.frombuffer(buffer, dtype=np.float32)
+                incoming_frame = tensor
+                print("received")
+            except:
+                s.close()
+                s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                s.connect((HOST, PORT))
+        
 def mask_function(x,args):
     threshold = max_displacement_of_blendshape49 * 0.1
     L = torch.sqrt(torch.clamp(torch.sum(x * x, dim=1),1e-18,None))
@@ -122,6 +150,8 @@ def render_set(model_path, name, iteration, views, gaussians, args, background):
     from os import makedirs
     import cv2
 
+    global incoming_frame
+
     # if args.use_HR:
     #     dataset, views = views
     #     dataset.create_load_seqs(views)
@@ -149,10 +179,25 @@ def render_set(model_path, name, iteration, views, gaussians, args, background):
 
     # for idx, view in enumerate(tqdm(views, desc="Rendering progress")):
     import time
-    last_frame_time = time.time() * 1000
+    num_frames = 0
+    start_time = time.time()
     while True:
+        idx = 0
+        
+        # if num_frames % 100 == 0:
+        #     current_time = time.time()
+        #     print((current_time - start_time) * 10)
+        #     start_time = current_time
+        
+        # ALL THE POSE PARAMS ARE STORED IN HERE. CHANGE THIS - RJ
         for idx in range(len(views)):
             view = views[idx]
+
+            if incoming_frame is not None:
+                pose = torch.from_numpy(incoming_frame).to(view.exp)
+                view.exp[0, :50] = pose[:50]
+                view.exp[0, 50:] = 0
+                view.eyelids = pose[50:52]
 
             face_gaussians.prepare_merge(view)
             face_gaussians.prepare_xyz(view, args)
@@ -168,6 +213,10 @@ def render_set(model_path, name, iteration, views, gaussians, args, background):
             alpha_image = torch.cat([image, alpha0[None, :, :]], dim=0).permute(1,2,0).cpu().detach().numpy()
             alpha_image = to_image(alpha_image)
 
+            alpha_image[462:, :, :] = 0
+
+            print("rendered image of size", alpha_image.shape)
+
             while True:
                 sh_rw = mmap.mmap(0, 1, 'rw', mmap.ACCESS_READ)
                 sh_rw.seek(0)
@@ -180,9 +229,7 @@ def render_set(model_path, name, iteration, views, gaussians, args, background):
             sh_rw = mmap.mmap(0, 1, 'rw', mmap.ACCESS_WRITE)
             sh_rw.seek(0)
             sh_rw.write("r".encode(encoding='ASCII'))
-            this_frame_time = time.time() * 1000
-            print("delta_time =", this_frame_time - last_frame_time)
-            last_frame_time = this_frame_time
+            num_frames += 1
 
 def searchForMaxIteration2(folder):
     saved_iters = []
@@ -307,4 +354,7 @@ def test():
 
 
 if __name__ == "__main__":
+    t = threading.Thread(target=tcp_thread)
+    t.start()
+
     test()

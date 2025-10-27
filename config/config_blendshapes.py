@@ -2,8 +2,10 @@
 # model
 
 sh_degree = 3
-source_path = "output/marcel_data"
-model_path = "output/marcel_model/marcel/"
+# source_path = "output/marcel_data"
+# model_path = "output/marcel_model/marcel/"
+source_path = "output/face/revan_bad_dataset"
+model_path = "output/face/revan_bad/"
 
 white_bkgd = False
 data_device = "cuda:0"
